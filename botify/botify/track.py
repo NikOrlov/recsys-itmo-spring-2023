@@ -24,9 +24,10 @@ class Catalog:
         self.tracks = []
         self.top_tracks = []
         self.tracks_with_diverse_recs = []
+        self.my_nn_recs = []
 
     # TODO Seminar 6 step 1: Configure reading tracks with diverse recommendations
-    def load(self, catalog_path, top_tracks_path, tracks_with_diverse_recs_path):
+    def load(self, catalog_path, top_tracks_path, tracks_with_diverse_recs_path, my_nn_recs_path=None):
         self.app.logger.info(f"Loading tracks from {catalog_path}")
         with open(catalog_path) as catalog_file:
             for j, line in enumerate(catalog_file):
@@ -62,10 +63,22 @@ class Catalog:
 
         self.app.logger.info(f"Loaded {j + 1} tracks with diverse recs")
 
+        with open(my_nn_recs_path) as my_nn_recs_file:
+            for j, line in enumerate(my_nn_recs_file):
+                data = json.loads(line)
+                self.my_nn_recs.append(
+                    Track(
+                        data["track"],
+                        data["artist"],
+                        data["title"],
+                        data.get("recommendations", []),
+                    )
+                )
+        self.app.logger.info(f"Loaded {j + 1} my nn recommendations")
         return self
 
     # TODO Seminar 6 step 2: Configure uploading tracks with diverse recommendations to redis DB
-    def upload_tracks(self, redis_tracks, redis_tracks_with_diverse_recs):
+    def upload_tracks(self, redis_tracks, redis_tracks_with_diverse_recs, redis_my_recs):
         self.app.logger.info(f"Uploading tracks to redis")
         for track in self.tracks:
             redis_tracks.set(track.track, self.to_bytes(track))
@@ -73,8 +86,12 @@ class Catalog:
         for track in self.tracks_with_diverse_recs:
             redis_tracks_with_diverse_recs.set(track.track, self.to_bytes(track))
 
+        for track in self.my_nn_recs:
+            redis_my_recs.set(track.track, self.to_bytes(track))
+
         self.app.logger.info(
-            f"Uploaded {len(self.tracks)} tracks, {len(self.tracks_with_diverse_recs)} tracks with diverse recs"
+            f"Uploaded {len(self.tracks)} tracks, {len(self.tracks_with_diverse_recs)} tracks with diverse recs,"
+            f" {len(self.my_nn_recs)} my nn tracks"
         )
 
     def upload_artists(self, redis):
